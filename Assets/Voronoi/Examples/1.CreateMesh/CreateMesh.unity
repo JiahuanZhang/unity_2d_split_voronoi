@@ -259,9 +259,10 @@ MonoBehaviour:
   material: {fileID: 2100000, guid: 7d5b0f12525e64246bd773bf0c9cc0d4, type: 2}
   testLogic: 0
   isAlphaTestEnable: 1
-  texture: {fileID: 2800000, guid: 17b8f77c01f7eb1418c8568693e68000, type: 3}
+  textures:
+  - {fileID: 2800000, guid: df05bbddeae54bf40b0cdee21ed7132c, type: 3}
   Uv: {x: 1, y: 1}
-  Seed: 0
+  Seed: 834911822
   MeshSize: {x: 10, y: 10}
   PointCountX: 20
   PointCountY: 20
@@ -272,7 +273,6 @@ MonoBehaviour:
   drawPolygon: 0
   drawCell: 1
   drawText: 0
-  meshList: []
   meshGroupData:
     Texture: 
     Seed: 0

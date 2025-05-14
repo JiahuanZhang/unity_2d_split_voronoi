@@ -8,7 +8,7 @@ public class VoronoiCreatorEditor : Editor
     private string SaveKey = "VoronioSaveKey";
     private string DefaultPath = "Assets/Meshes/";
 
-
+    private string meshDataName;
     public override void OnInspectorGUI()
     {
         base.OnInspectorGUI();
@@ -18,25 +18,7 @@ public class VoronoiCreatorEditor : Editor
         GUILayout.Space(10);
         if (GUILayout.Button("Save Mesh"))
         {
-            if (Application.isPlaying)
-            {
-                var folder = EditorPrefs.GetString(SaveKey, DefaultPath);
-                if (!Directory.Exists(folder)) { Directory.CreateDirectory(folder); }
-
-                var data = vc.meshGroupData;
-                var json = JsonUtility.ToJson(data);
-                var path = folder + $"mesh_{data.Texture}_{data.Seed}.json";
-                using (var sw = File.CreateText(path))
-                {
-                    sw.Write(json);
-                    sw.Flush();
-                }
-                AssetDatabase.Refresh();
-            }
-            else
-            {
-                Debug.LogError("Can Only Save In Playing！！");
-            }
+            SaveMesh(vc);
         }
         {
             GUILayout.BeginHorizontal();
@@ -48,6 +30,39 @@ public class VoronoiCreatorEditor : Editor
                 EditorPrefs.SetString(SaveKey, newStr);
             }
             GUILayout.EndHorizontal();
+        }
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Mesh Name:", GUILayout.Width(120));
+            meshDataName = GUILayout.TextField(meshDataName);
+            GUILayout.EndHorizontal();
+        }
+    }
+
+    void SaveMesh(VoronoiCreator vc)
+    {
+
+        if (Application.isPlaying)
+        {
+            var folder = EditorPrefs.GetString(SaveKey, DefaultPath);
+            if (!folder.EndsWith("/") && !folder.EndsWith("\\\\")) folder += "/";
+            if (!Directory.Exists(folder)) { Directory.CreateDirectory(folder); }
+
+            var file = meshDataName;
+            if (string.IsNullOrEmpty(meshDataName)) file = vc.textures[0].name + ".json";
+            var path = folder + file;
+            using (var sw = File.CreateText(path))
+            {
+                var data = vc.meshGroupData;
+                var json = JsonUtility.ToJson(data);
+                sw.Write(json);
+                sw.Flush();
+            }
+            AssetDatabase.Refresh();
+        }
+        else
+        {
+            Debug.LogError("Can Only Save In Playing！！");
         }
     }
 }

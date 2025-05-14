@@ -13,10 +13,11 @@ public class VoronoiCreator : MonoBehaviour
     [Tooltip("if enable alpha test,transparent clip will be removed.")]
     public bool isAlphaTestEnable;
     [Tooltip("texture sampling for alpha test.You Should Enable 'Read/Write' and 'Alpha is transparency'!")]
-    public Texture2D texture;
+
+    public Texture2D[] textures;
 
     [Header("Uv Data")]
-    [Tooltip("mesh uv scale factor")]
+    [Tooltip("mesh uv range")]
     public Vector2 Uv = new Vector2(1, 1);
 
     [Header("Voronio Freature Points")]
@@ -49,12 +50,15 @@ public class VoronoiCreator : MonoBehaviour
     [HideInInspector] public Dictionary<long, Cell> cellDic;
     [HideInInspector] public Dictionary<long, Cell> errorcellDic;
 
-    [HideInInspector] public List<Mesh> meshList;
+    [HideInInspector] public Dictionary<long, MeshClip> meshDic;
     [HideInInspector] public MeshGroupData meshGroupData;
 
     private bool isFirst = true;
+
+    public static VoronoiCreator Instance;
     void Awake()
     {
+        Instance = this;
         if (testLogic)
         {
             for (int i = 0; i < 10; i++)
@@ -121,7 +125,7 @@ public class VoronoiCreator : MonoBehaviour
     private void LateUpdate()
     {
         if (testLogic) return;
-        
+
         if (drawVertex)
         {
             for (int i = 0; i < trianglesEdgeList.Count; i++)
@@ -131,7 +135,7 @@ public class VoronoiCreator : MonoBehaviour
                 Debug.DrawLine(start, end, Color.red);
             }
         }
-        
+
         if (drawPoint)
         {
             for (int i = 0; i < featurePoints.Count; i++)
@@ -141,7 +145,7 @@ public class VoronoiCreator : MonoBehaviour
                 Debug.DrawLine(start, end, Color.white);
             }
         }
-        
+
         if (drawPolygon)
         {
             for (int i = 0; i < voronoiEdges.Count; i++)
@@ -151,7 +155,7 @@ public class VoronoiCreator : MonoBehaviour
                 Debug.DrawLine(start, end, Color.blue);
             }
         }
-        
+
         if (drawCell)
         {
             bool isError = errorcellDic.Count > 0;
@@ -192,29 +196,49 @@ public class VoronoiCreator : MonoBehaviour
     void CreateMeshes()
     {
         if (testLogic) return;
-        material.SetTexture("_BaseMap", texture);
-        material.SetTexture("_EmissionMap", texture);
+        material.SetTexture("_BaseMap", textures[0]);
+        material.SetTexture("_EmissionMap", textures[0]);
 
         bool isError = errorcellDic.Count > 0;
         var dic = !isError ? cellDic : errorcellDic;
-        meshGroupData = VoronoiMeshHelper.CreateMeshesWithTexture(dic, vertexDic, new Vector2(MeshSize.x, MeshSize.y), Seed, texture, true, Uv, MeshSize, PointCountX, PointCountY);
 
+#if UNITY_EDITOR
+        meshGroupData = VoronoiMeshHelper.CreateMeshesWithTexture(dic, vertexDic, new Vector2(MeshSize.x, MeshSize.y), Seed, textures, true, Uv, MeshSize, PointCountX, PointCountY);
+#endif
+        meshDic = new Dictionary<long, MeshClip>();
         foreach (var chipData in meshGroupData.ChipDatas)
         {
-
-            var mesh = new Mesh();
-            mesh.SetVertices(chipData.Vertices);
-            mesh.SetUVs(0, chipData.Uvs);
-            mesh.SetTriangles(chipData.Triangles, 0);
-            mesh.RecalculateBounds();
-            mesh.RecalculateNormals();
-            //
-            var go = new GameObject("m" + chipData.InstanceID);
-            var rd = go.AddComponent<MeshRenderer>();
-            var mf = go.AddComponent<MeshFilter>();
-            rd.sharedMaterial = material;
-            mf.mesh = mesh;
+            CreateMeshClip(chipData);
         }
     }
- 
+
+    private void CreateMeshClip(MeshChipData chipData)
+    {
+        //
+        var go = new GameObject();
+        var mc = go.AddComponent<MeshClip>();
+        mc.Init(chipData, material);
+        meshDic.Add(chipData.InstanceID, mc);
+    }
+
+    public void DelteClip(long instanceID)
+    {
+        var index = meshGroupData.ChipDatas.FindIndex(e => e.InstanceID == instanceID);
+        meshGroupData.ChipDatas.RemoveAt(index);
+    }
+
+    public void CombinMeshes(long[] ids)
+    {
+        var mc = meshGroupData.CombineMeshes(ids);
+
+        for (var i = 1; i < ids.Length; i++)
+        {
+            GameObject.Destroy(meshDic[ids[i]].gameObject);
+            meshDic.Remove(ids[i]);
+        }
+        GameObject.Destroy(meshDic[mc.InstanceID].gameObject);
+        meshDic.Remove(mc.InstanceID);
+        CreateMeshClip(mc);
+        Debug.Log("Combine mesh success!!");
+    }
 }

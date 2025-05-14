@@ -22,7 +22,7 @@ public class Demo2 : MonoBehaviour
 
     public void CreateMeshes(MeshGroupData data)
     {
-        for (int i = 0; i < data.ChipDatas.Length; i++)
+        for (int i = 0; i < data.ChipDatas.Count; i++)
         {
             var chipData = data.ChipDatas[i];
             var mesh = new Mesh();

@@ -1,26 +1,34 @@
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 public static class VoronoiMeshHelper
 {
-    public static MeshGroupData CreateMeshes(Dictionary<long, Cell> cells, Dictionary<long, CellVertex> vertexDic, Vector2 screenSize, int seed, string textureName, Vector2 uvs, Vector2 meshSize, int countX, int countY)
+    /// <summary>
+    /// create meshes
+    /// </summary>
+    public static MeshGroupData CreateMeshes(Dictionary<long, Cell> cells, Dictionary<long, CellVertex> vertexDic, Vector2 screenSize, int seed, string texture, Vector2 uvs, Vector2 meshSize, int countX, int countY)
     {
         var clips = CreateMeshChipDatas(cells, vertexDic, screenSize);
         clips.Sort(SortMeshChips);
 
         var meshData = new MeshGroupData();
-        meshData.Texture = textureName;
+        meshData.Texture = texture;
         meshData.Seed = seed;
         meshData.Uvs = uvs;
         meshData.MeshSize = meshSize;
         meshData.PointCountX = countX;
         meshData.PointCountY = countY;
-        meshData.ChipDatas = clips.ToArray();
+        meshData.ChipDatas = clips;
         return meshData;
 
     }
 
-    public static MeshGroupData CreateMeshesWithTexture(Dictionary<long, Cell> cells, Dictionary<long, CellVertex> vertexDic, Vector2 screenSize, int seed, Texture2D texture, bool alphaTest, Vector2 uvs, Vector2 meshSize, int countX, int countY)
+#if UNITY_EDITOR
+    /// <summary>
+    /// create meshes with texture, alpha test
+    /// </summary>
+    public static MeshGroupData CreateMeshesWithTexture(Dictionary<long, Cell> cells, Dictionary<long, CellVertex> vertexDic, Vector2 screenSize, int seed, Texture2D[] textures, bool alphaTest, Vector2 uvs, Vector2 meshSize, int countX, int countY)
     {
         var clips = CreateMeshChipDatas(cells, vertexDic, screenSize);
         clips.Sort(SortMeshChips);
@@ -28,6 +36,7 @@ public static class VoronoiMeshHelper
         {
             foreach (var cell in cells.Values)
             {
+                // alpha test
                 bool isTransparent = true;
                 foreach (var vertexId in cell.vertexIds)
                 {
@@ -49,31 +58,37 @@ public static class VoronoiMeshHelper
         }
 
         var meshData = new MeshGroupData();
-        meshData.Texture = texture.name;
+        meshData.Texture = AssetDatabase.GetAssetPath(textures[0]);
         meshData.Seed = seed;
         meshData.Uvs = uvs;
         meshData.MeshSize = meshSize;
         meshData.PointCountX = countX;
         meshData.PointCountY = countY;
-        meshData.ChipDatas = clips.ToArray();
+        meshData.ChipDatas = clips;
         return meshData;
 
 
+        // get alpha value from uv
         float GetAlphaFromUV(float u, float v)
         {
-            if (texture == null)
+            if (textures == null || textures.Length <= 0)
             {
                 Debug.LogError("Texture2D is not assigned!");
                 return 0f;
             }
 
-            int x = Mathf.FloorToInt(u * texture.width);
-            int y = Mathf.FloorToInt(v * texture.height);
-            Color color = texture.GetPixel(x, y);
-
-            return color.a;
+            var alphas = 0f;
+            for (int i = 0; i < textures.Length; i++)
+            {
+                int x = Mathf.FloorToInt(u * textures[i].width);
+                int y = Mathf.FloorToInt(v * textures[i].height);
+                Color color = textures[i].GetPixel(x, y);
+                alphas += color.a;
+            }
+            return alphas;
         }
     }
+#endif
 
     public static List<MeshChipData> CreateMeshChipDatas(Dictionary<long, Cell> cells, Dictionary<long, CellVertex> vertexDic, Vector2 screenSize)
     {
@@ -81,6 +96,7 @@ public static class VoronoiMeshHelper
 
         foreach (var cell in cells.Values)
         {
+            // remove meshes out of uv
             bool isOutofUv = false;
 
             float tolerantX = 0.2f, tolerantY = 0.2f;
@@ -98,24 +114,28 @@ public static class VoronoiMeshHelper
             var chipData = new MeshChipData(cell.instanceID);
             tempChips.Add(chipData);
 
+            // set vertices
             var vertices = new List<Vector3>();
+            var vertexTemp = Vector3.zero;
             foreach (var vertexId in cell.vertexIds)
             {
                 var pos = vertexDic[vertexId].Pos;
-                vertices.Add(new Vector3(pos.x * screenSize.x, pos.y * screenSize.y, 0));
+                var scaledPos = new Vector3(pos.x * screenSize.x, pos.y * screenSize.y, 0);
+                vertices.Add(scaledPos);
+                vertexTemp += scaledPos;
             }
             chipData.Vertices = vertices.ToArray();
+            chipData.Center = vertexTemp / vertices.Count;
 
+            // set uvs
             var uvs = new List<Vector2>();
-            var uvt = Vector2.zero;
             foreach (var vertexId in cell.vertexIds)
             {
                 uvs.Add(vertexDic[vertexId].Pos);
-                uvt += vertexDic[vertexId].Pos;
             }
             chipData.Uvs = uvs.ToArray();
-            chipData.Center = uvt / uvs.Count;
 
+            // set triangles
             var triangles = new List<int>();
             foreach (var triangle in cell.triangles)
             {
